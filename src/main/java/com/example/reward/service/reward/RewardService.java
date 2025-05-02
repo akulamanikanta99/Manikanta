@@ -1,5 +1,6 @@
 package com.example.reward.service.reward;
 
+import com.example.reward.dto.RewardPointDTO;
 import com.example.reward.entity.RewardPoint;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +11,11 @@ import java.util.Map;
 @Service
 public interface RewardService {
 
-    Map<Long, List<Map<String, Integer>>> getCustomerMonthlyRewardSummary(Long customerId, LocalDate endDate);
+    Map<Long, List<RewardPointDTO>> calculateRewardPointsForCustomer(Long customerId, LocalDate parseStartDate,
+                                                                     LocalDate parseEndDate);
 
-    Map<Long, List<RewardPoint>> getAllRewardPointsGroupedByCustomer();
+    Map<Long, List<RewardPointDTO>> getRewardsForCustomer(Long customerId);
+
+    Map<Long, List<RewardPointDTO>> getAllRewardPointsGroupedByCustomer();
 }
+

@@ -1,6 +1,7 @@
 package com.example.reward.controller;
 
 
+import com.example.reward.dto.CustomerDTO;
 import com.example.reward.entity.Customer;
 import com.example.reward.service.customer.CustomerService;
 import com.example.reward.service.login.LoginAndLogoutService;
@@ -9,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/customers/v1")
@@ -48,11 +51,29 @@ public class CustomerController {
         }
         try {
             customerService.deleteCustomerWithTransactionsAndRewards(customerId);
-            return ResponseEntity.ok("Customer with ID " + customerId + " and associated transactions and reward points deleted successfully");
+            return ResponseEntity.ok("Customer with ID " + customerId
+                    + " and associated transactions and reward points deleted successfully");
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error occurred while deleting customer with ID " + customerId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error occurred while deleting customer with ID " + customerId);
         }
     }
 
+    @GetMapping("/{customerId}")
+    public ResponseEntity<CustomerDTO> getCustomerById(@PathVariable Long customerId) {
+        CustomerDTO customerDTO = customerService.getCustomerById(
+                customerId);
+        if (customerDTO != null) {
+            return ResponseEntity.ok(customerDTO);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CustomerDTO>> getAllCustomers() {
+        List<CustomerDTO> customerDTO = customerService.getAllCustomers();
+        return ResponseEntity.ok(customerDTO);
+    }
 }
 

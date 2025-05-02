@@ -1,5 +1,6 @@
 package com.example.reward.service.reward;
 
+import com.example.reward.dto.RewardPointDTO;
 import com.example.reward.entity.CustomerTransaction;
 import com.example.reward.entity.RewardPoint;
 import com.example.reward.repository.CustomerRepository;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,57 +31,86 @@ public class RewardServiceImpl implements RewardService {
     @Autowired
     private TransactionService transactionService;
 
-    @Override
     @Transactional
-    public Map<Long, List<Map<String, Integer>>> getCustomerMonthlyRewardSummary(Long customerId, LocalDate endDate) {
-        String[] monthLabels = {"", "January", "February", "March", "April", "May", "June",
-                "July", "August", "September", "October", "November", "December"};
+    public Map<Long, List<RewardPointDTO>> calculateRewardPointsForCustomer(Long customerId, LocalDate startDate,
+                                                                            LocalDate endDate) {
+        List<CustomerTransaction> transactions = transactionRepository.findTransactionsForCustomerBetweenDates(
+                customerId, startDate, endDate);
 
-        LocalDate startDate = endDate.minusMonths(3);
-        List<CustomerTransaction> customerTransactions = transactionRepository
-                .findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
+        Map<Long, List<RewardPointDTO>> customerRewardPoints = new HashMap<>();
+        Map<YearMonth, Integer> monthlyPointsMap = new HashMap<>();
 
-        Map<Long, List<Map<String, Integer>>> rewardSummaryByCustomer = new HashMap<>();
-        Map<Integer, Integer> rewardPointsByMonth = new HashMap<>();
-
-        for (CustomerTransaction txn : customerTransactions) {
-            int rewardPoints = transactionService.calculateRewardPoints(txn.getAmount());
-            int monthNumber = txn.getDate().getMonthValue();
-            rewardPointsByMonth.merge(monthNumber, rewardPoints, Integer::sum);
+        for (CustomerTransaction transaction : transactions) {
+            int points = transactionService.calculateRewardPoints(transaction.getAmount());
+            YearMonth yearMonth = YearMonth.from(transaction.getDate());
+            monthlyPointsMap.put(yearMonth, monthlyPointsMap.getOrDefault(yearMonth, 0) + points);
         }
 
-        int accumulatedTotalPoints = rewardPointsByMonth.values()
-                .stream()
-                .mapToInt(Integer::intValue)
-                .sum();
+        int totalPoints = monthlyPointsMap.values().stream().mapToInt(Integer::intValue).sum();
+        List<RewardPointDTO> monthlyRewardPointsList = new ArrayList<>();
 
-        List<Map<String, Integer>> monthlyRewardsList = new ArrayList<>();
-        int startMonth = startDate.getMonthValue();
-        int endMonth = endDate.getMonthValue();
+        YearMonth current = YearMonth.from(startDate);
+        YearMonth end = YearMonth.from(endDate);
 
-        for (int i = 0; i <= 2; i++) {
-            int targetMonth = (startMonth + i - 1) % 12 + 1; // Adjust for rollover and 1-based indexing
-            String monthLabel = monthLabels[targetMonth];
+        while (!current.isAfter(end)) {
+            RewardPointDTO rewardPointDTO = new RewardPointDTO();
+            rewardPointDTO.setMonth(current.getMonth().name().substring(0, 1).toUpperCase() +
+                    current.getMonth().name().substring(1).toLowerCase());
+            rewardPointDTO.setPoints(monthlyPointsMap.getOrDefault(current, 0));
+            monthlyRewardPointsList.add(rewardPointDTO);
 
-            Map<String, Integer> monthReward = new HashMap<>();
-            monthReward.put(monthLabel, rewardPointsByMonth.getOrDefault(targetMonth, 0));
-            monthlyRewardsList.add(monthReward);
+            current = current.plusMonths(1);
         }
 
-        Map<String, Integer> totalRewardMap = new HashMap<>();
-        totalRewardMap.put("Total", accumulatedTotalPoints);
-        monthlyRewardsList.add(totalRewardMap);
+        RewardPointDTO totalRewardDTO = new RewardPointDTO();
+        totalRewardDTO.setPoints(totalPoints);
+        monthlyRewardPointsList.add(totalRewardDTO);
 
-        rewardSummaryByCustomer.put(customerId, monthlyRewardsList);
-        return rewardSummaryByCustomer;
+        customerRewardPoints.put(customerId, monthlyRewardPointsList);
+        return customerRewardPoints;
     }
 
+    public Map<Long, List<RewardPointDTO>> getRewardsForCustomer(Long customerId) {
+        Map<Long, List<RewardPointDTO>> customerRewardsMap = new HashMap<>();
 
-    @Override
-    public Map<Long, List<RewardPoint>> getAllRewardPointsGroupedByCustomer() {
+        List<RewardPoint> rewards = rewardPointRepository.findRewardsByCustomerId(customerId);
+
+        if (rewards != null && !rewards.isEmpty()) {
+            List<RewardPointDTO> rewardPointDTOs = rewards.stream()
+                    .map(rewardPoint -> new RewardPointDTO(
+                            rewardPoint.getRewardPointId(),
+                            rewardPoint.getPoints(),
+                            rewardPoint.getCreatedAt(),
+                            rewardPoint.getCustomer().getCustomerId(),
+                            rewardPoint.getCustomerTransaction() != null ?
+                                    rewardPoint.getCustomerTransaction().getTransactionId() :
+                                    null
+                    ))
+                    .collect(Collectors.toList());
+
+            customerRewardsMap.put(customerId, rewardPointDTOs);
+        } else {
+            customerRewardsMap.put(customerId, Collections.emptyList());
+        }
+
+        return customerRewardsMap;
+    }
+
+    public Map<Long, List<RewardPointDTO>> getAllRewardPointsGroupedByCustomer() {
         List<RewardPoint> allRewards = rewardPointRepository.findAll();
+
         return allRewards.stream()
-                .collect(Collectors.groupingBy(rewardPoint -> rewardPoint.getCustomer().getCustomerId()));
+                .map(rewardPoint -> new RewardPointDTO(
+                        rewardPoint.getRewardPointId(),
+                        rewardPoint.getPoints(),
+                        rewardPoint.getCreatedAt(),
+                        rewardPoint.getCustomer().getCustomerId(),
+                        rewardPoint.getCustomerTransaction() != null ?
+                                rewardPoint.getCustomerTransaction().getTransactionId() :
+                                null
+                ))
+                .collect(Collectors.groupingBy(RewardPointDTO::getCustomerId));
     }
 
 }
+

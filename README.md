@@ -1,48 +1,54 @@
-This Spring Boot application calculates and tracks reward points for customers based on their transaction history. Customers earn points based on their purchases with the following rules:
+# Overview
 
-2 points for every dollar spent over $100.
+This Spring Boot application calculates the reward points for customers based on their transaction history. Customers earn points for their purchases as follows:
 
-1 point for every dollar spent between $50 and $100.
+2 points for every dollar spent over $100 in each transaction.
+1 point for every dollar spent between $50 and $100 in each transaction.
+The system processes transaction data over a three-month period, calculating monthly reward points as well as the total points accumulated by each customer.
 
-The system processes transaction data over a three-month period, calculating monthly rewards as well as the total accumulated points for each customer.
+## Features
 
-Key Features
-Dynamic Reward Calculation: Automatically calculates reward points based on transaction amounts.
+Calculates reward points for each transaction based on purchase amount.
+Accumulates points on a monthly and total basis.
+Provides easy-to-understand point calculation logic for each transaction.
+Handles a large number of transactions efficiently.
+Points Calculation Logic
+The reward points are calculated using the following rules:
 
-Monthly and Total Point Accumulation: Tracks and reports reward points for each customer on a monthly basis, along with their total accumulated points.
+## Transactions over $100:
 
-Efficient Processing: Handles a large number of customer transactions without performance degradation.
+For every dollar spent over $100, the customer receives 2 points.
 
-Easy-to-Understand Calculation Logic: Provides clear and transparent reward point calculations for each transaction.
+## Transactions between $50 and $100:
 
-Reward Points Calculation Logic
-The reward points for a given transaction are determined by the amount spent, following these rules:
+For every dollar spent in the range of $50 to $100, the customer receives 1 point.
 
-1. Transactions Over $100
-   For every dollar spent above $100, the customer earns 2 points per dollar.
+## Example Calculation:
 
-2. Transactions Between $50 and $100
-   For every dollar spent between $50 and $100, the customer earns 1 point per dollar.
+For a transaction of $120:
+Points for the first $100: 1 point per dollar for the first $50 = 50 points.
+Points for the next $20: 2 points per dollar = 40 points.
+Total points = 90 points.
 
-Example Calculation
-Consider a transaction where the customer spends $120:
-
-For the first $50, the customer earns 1 point per dollar:
-50 points
-
-For the next $50, the customer earns 1 point per dollar:
-50 points
-
-For the remaining $20 (above $100), the customer earns 2 points per dollar:
-40 points
-
-Total points for the transaction = 50 + 50 + 40 = 140 points.
-
-System Requirements
-Before running the application, ensure that you have the following installed:
+### Set up the environment: Make sure you have the following installed:
 
 Java 21
+Maven (for dependency management and build)
+PostgreSQL
 
-Maven (for dependency management and building)
+### Configure application properties: 
 
-PostgreSQL (for database management)
+Edit src/main/resources/application.properties to include your database settings:
+spring.datasource.url=jdbc:postgresql://localhost:5432/assignment
+spring.datasource.username=root
+spring.datasource.password=password
+
+### Build and run the application: 
+
+Use Maven to build and run the application:
+mvn clean install
+mvn spring-boot:run
+
+### Access the application: 
+
+Once the application is running, you can interact with the API or test it using Postman or any API client at http://localhost:8080.
