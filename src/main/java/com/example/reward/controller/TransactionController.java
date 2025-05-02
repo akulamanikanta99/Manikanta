@@ -17,7 +17,7 @@ public class TransactionController {
     @Autowired
     private TransactionService transactionService;
 
-    @PostMapping("/api/customers/transactions")
+    @PostMapping("/transactions")
     public ResponseEntity<String> addTransaction(@RequestBody CustomerTransaction transaction) {
         transactionService.processTransaction(transaction);
         return ResponseEntity.status(HttpStatus.CREATED).body("Transaction processed");
