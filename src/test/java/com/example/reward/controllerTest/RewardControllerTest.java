@@ -1,8 +1,9 @@
 package com.example.reward.controllerTest;
 
 import com.example.reward.controller.RewardController;
-import com.example.reward.dto.RewardPointDTO;
-import com.example.reward.entity.RewardPoint;
+import com.example.reward.dto.MonthlyPointDTO;
+import com.example.reward.dto.RewardSummaryDTO;
+import com.example.reward.dto.TransactionDTO;
 import com.example.reward.exception.ResourceNotFoundException;
 import com.example.reward.service.reward.RewardService;
 import org.junit.Before;
@@ -13,8 +14,11 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.http.ResponseEntity;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.*;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -29,97 +33,43 @@ public class RewardControllerTest {
     @InjectMocks
     private RewardController rewardController;
 
-    private Long customerId;
+    private List<RewardSummaryDTO> rewardSummaryList;
 
-    @Test
-    public void testCalculateRewardPointsForCustomer() {
-        Long customerId = 1001L;
-        String startDate = "2025-01-01";
-        String endDate = "2025-03-31";
+    @Before
+    public void setup() {
+        TransactionDTO transaction = new TransactionDTO(1L, 1L, BigDecimal.valueOf(120.0), LocalDateTime.of(2024, 11, 1, 10, 30));
+        MonthlyPointDTO monthlyPoint = new MonthlyPointDTO(2024, "NOVEMBER", 90);
 
-        List<RewardPointDTO> rewardPointDTOList = new ArrayList<>();
+        RewardSummaryDTO summary = new RewardSummaryDTO();
+        summary.setId(1L);
+        summary.setCustomerName("Alice");
+        summary.setTransactions(Collections.singletonList(transaction));
+        summary.setMonthlyPoints(Collections.singletonList(monthlyPoint));
 
-        RewardPointDTO january = new RewardPointDTO();
-        january.setMonth("January");
-        january.setPoints(50);
-        rewardPointDTOList.add(january);
-
-        RewardPointDTO february = new RewardPointDTO();
-        february.setMonth("February");
-        february.setPoints(80);
-        rewardPointDTOList.add(february);
-
-        RewardPointDTO march = new RewardPointDTO();
-        march.setMonth("March");
-        march.setPoints(70);
-        rewardPointDTOList.add(march);
-
-        RewardPointDTO total = new RewardPointDTO();
-        total.setMonth("Total");
-        total.setPoints(200);
-        rewardPointDTOList.add(total);
-
-        Map<Long, List<RewardPointDTO>> mockResponse = new HashMap<>();
-        mockResponse.put(customerId, rewardPointDTOList);
-
-        when(rewardService.calculateRewardPointsForCustomer(eq(customerId), LocalDate.parse(eq(startDate)),
-                LocalDate.parse(eq(endDate))))
-                .thenReturn(mockResponse);
-
-        Map<Long, List<RewardPointDTO>> response = rewardController.getRewardsForCustomer(customerId, startDate,
-                        endDate)
-                .getBody();
-
-        assertNotNull(response);
-        assertEquals(1, response.size());
-        assertEquals(mockResponse, response);
-        verify(rewardService, times(1)).calculateRewardPointsForCustomer(eq(customerId), LocalDate.parse(eq(startDate)),
-                LocalDate.parse(eq(endDate)));
+        rewardSummaryList = Collections.singletonList(summary);
     }
 
     @Test
-    public void testGetRewardsForCustomer() {
-        List<RewardPointDTO> mockRewardPoints = new ArrayList<>();
-        RewardPointDTO rewardPoint1 = new RewardPointDTO(1L, 50, null, 123L, 456L, "January");
-        mockRewardPoints.add(rewardPoint1);
+    public void testGetRewardSummarySuccess() {
+        when(rewardService.getRewardSummary(eq(1L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(rewardSummaryList);
 
-        Map<Long, List<RewardPointDTO>> mockResponse = new HashMap<>();
-        mockResponse.put(123L, mockRewardPoints);
+        ResponseEntity<List<RewardSummaryDTO>> response = rewardController.getRewardSummary(
+                1L, "2024-11-01", "2024-11-30");
 
-        when(rewardService.getRewardsForCustomer(eq(123L))).thenReturn(mockResponse);
-
-        ResponseEntity<Map<Long, List<RewardPointDTO>>> response = rewardController.getRewardsForCustomer(123L);
-
-        assertNotNull(response);
         assertEquals(200, response.getStatusCodeValue());
-        assertEquals(mockResponse, response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals("Alice", response.getBody().get(0).getCustomerName());
 
-        verify(rewardService, times(1)).getRewardsForCustomer(eq(123L));
+        verify(rewardService, times(1)).getRewardSummary(eq(1L), any(LocalDate.class), any(LocalDate.class));
     }
 
     @Test(expected = ResourceNotFoundException.class)
-    public void testGetRewardsForCustomerNoRewards() {
-        when(rewardService.getRewardsForCustomer(eq(customerId))).thenReturn(new HashMap<>());
-        rewardController.getRewardsForCustomer(customerId);
-    }
+    public void testGetRewardSummaryNoData() {
+        when(rewardService.getRewardSummary(eq(1L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(Collections.emptyList());
 
-    @Test
-    public void testGetAllRewards() {
-        List<RewardPointDTO> mockRewardPoints = new ArrayList<>();
-        RewardPointDTO rewardPoint1 = new RewardPointDTO(1L, 100, null, 123L, 456L, "January");
-        mockRewardPoints.add(rewardPoint1);
-
-        Map<Long, List<RewardPointDTO>> mockResponse = new HashMap<>();
-        mockResponse.put(123L, mockRewardPoints);
-
-        when(rewardService.getAllRewardPointsGroupedByCustomer()).thenReturn(mockResponse);
-
-        ResponseEntity<Map<Long, List<RewardPointDTO>>> response = rewardController.getAllRewards();
-
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        assertEquals(mockResponse, response.getBody());
-
-        verify(rewardService, times(1)).getAllRewardPointsGroupedByCustomer();
+        rewardController.getRewardSummary(1L, "2024-11-01", "2024-11-30");
     }
 }

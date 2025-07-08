@@ -40,6 +40,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Transactional
     public void processTransaction(CustomerTransaction transaction) {
         int points = calculateRewardPoints(transaction.getAmount());
+
         RewardPoint rewardPoint = new RewardPoint.Builder()
                 .setCustomer(transaction.getCustomer())
                 .setPoints(points)
