@@ -1,12 +1,11 @@
-package com.example.reward.serviceTest;
+package com.example.reward.service.reward;
 
+import com.example.reward.dto.RewardSummaryDTO;
+import com.example.reward.dto.TransactionDTO;
 import com.example.reward.entity.Customer;
 import com.example.reward.entity.CustomerTransaction;
-import com.example.reward.entity.RewardPoint;
 import com.example.reward.repository.CustomerRepository;
 import com.example.reward.repository.CustomerTransactionRepository;
-import com.example.reward.repository.RewardPointRepository;
-import com.example.reward.service.reward.RewardServiceImpl;
 import com.example.reward.service.transaction.TransactionService;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,21 +16,21 @@ import org.mockito.junit.MockitoJUnitRunner;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Arrays;
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class RewardServiceTest {
 
-    @Mock
-    private CustomerTransactionRepository transactionRepository;
+    @InjectMocks
+    private RewardServiceImpl rewardService;
 
     @Mock
-    private RewardPointRepository rewardPointRepository;
+    private CustomerTransactionRepository transactionRepository;
 
     @Mock
     private CustomerRepository customerRepository;
@@ -39,76 +38,70 @@ public class RewardServiceTest {
     @Mock
     private TransactionService transactionService;
 
-    @InjectMocks
-    private RewardServiceImpl rewardService;
-
     private Long customerId;
+    private LocalDate startDate;
     private LocalDate endDate;
-    private CustomerTransaction transaction1, transaction2;
+
+    private CustomerTransaction sampleTransaction;
 
     @Before
-    public void setupTestData() {
+    public void setup() {
         customerId = 1L;
-        endDate = LocalDate.now();
+        startDate = LocalDate.of(2024, 11, 1);
+        endDate = LocalDate.of(2024, 11, 30);
 
-        Customer dummyCustomer = new Customer();
-        dummyCustomer.setCustomerId(customerId);
-
-        transaction1 = new CustomerTransaction();
-        transaction1.setAmount(new BigDecimal("150"));
-        transaction1.setDate(endDate.minusMonths(2).atStartOfDay());
-        transaction1.setCustomer(dummyCustomer);
-
-        transaction2 = new CustomerTransaction();
-        transaction2.setAmount(new BigDecimal("75"));
-        transaction2.setDate(endDate.minusMonths(1).atStartOfDay());
-        transaction2.setCustomer(dummyCustomer);
-    }
-
-    @Test
-    public void shouldReturnMonthlyAndTotalRewardSummaryForCustomer() {
-        when(transactionService.calculateRewardPoints(new BigDecimal("150"))).thenReturn(100);
-        when(transactionService.calculateRewardPoints(new BigDecimal("75"))).thenReturn(25);
-        when(transactionRepository.findTransactionsForCustomerBetweenDates(customerId, endDate.minusMonths(3), endDate))
-                .thenReturn(Arrays.asList(transaction1, transaction2));
-
-        Map<Long, List<Map<String, Integer>>> result = rewardService.getCustomerMonthlyRewardSummary(customerId, endDate);
-
-        assertNotNull(result);
-        assertTrue(result.containsKey(customerId));
-
-        List<Map<String, Integer>> rewardList = result.get(customerId);
-        assertEquals(4, rewardList.size()); // 3 months + total
-
-        int calculatedTotal = rewardList.stream()
-                .filter(map -> !map.containsKey("Total"))
-                .flatMap(m -> m.values().stream())
-                .mapToInt(Integer::intValue).sum();
-
-        Map<String, Integer> totalMap = rewardList.get(rewardList.size() - 1);
-        assertEquals((Integer) calculatedTotal, totalMap.get("Total"));
-    }
-
-    @Test
-    public void shouldGroupAllRewardPointsByCustomerId() {
         Customer customer = new Customer();
-        customer.setCustomerId(1L);
+        customer.setCustomerId(customerId);
+        customer.setName("Alice");
 
-        RewardPoint rp1 = new RewardPoint();
-        rp1.setPoints(100);
-        rp1.setCustomer(customer);
+        sampleTransaction = new CustomerTransaction();
+        sampleTransaction.setTransactionId(100L);
+        sampleTransaction.setAmount(BigDecimal.valueOf(120.0));
+        sampleTransaction.setDate(LocalDateTime.of(2024, 11, 10, 10, 30));
+        sampleTransaction.setCustomer(customer);
+    }
 
-        RewardPoint rp2 = new RewardPoint();
-        rp2.setPoints(25);
-        rp2.setCustomer(customer);
+    @Test
+    public void testGetRewardSummarySuccess() {
+        when(transactionRepository.findTransactionsForCustomerBetweenDates(customerId, startDate, endDate))
+                .thenReturn(List.of(sampleTransaction));
 
-        when(rewardPointRepository.findAll()).thenReturn(Arrays.asList(rp1, rp2));
+        when(transactionService.calculateRewardPoints(BigDecimal.valueOf(120.0)))
+                .thenReturn(90);
 
-        Map<Long, List<RewardPoint>> result = rewardService.getAllRewardPointsGroupedByCustomer();
+        List<RewardSummaryDTO> result = rewardService.getRewardSummary(customerId, startDate, endDate);
 
         assertNotNull(result);
         assertEquals(1, result.size());
-        assertTrue(result.containsKey(1L));
-        assertEquals(2, result.get(1L).size());
+
+        RewardSummaryDTO summary = result.get(0);
+        assertEquals(customerId, summary.getId());
+        assertEquals("Alice", summary.getCustomerName());
+        assertEquals(1, summary.getTransactions().size());
+        assertEquals(1, summary.getMonthlyPoints().size());
+
+        TransactionDTO tx = summary.getTransactions().get(0);
+        assertEquals(Long.valueOf(100L), tx.getId());
+        assertEquals(BigDecimal.valueOf(120.0), tx.getAmount());
+
+        verify(transactionRepository, times(1))
+                .findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
+        verify(transactionService, times(1))
+                .calculateRewardPoints(BigDecimal.valueOf(120.0));
+    }
+
+    @Test
+    public void testGetRewardSummaryEmptyTransactions() {
+        when(transactionRepository.findTransactionsForCustomerBetweenDates(customerId, startDate, endDate))
+                .thenReturn(Collections.emptyList());
+
+        List<RewardSummaryDTO> result = rewardService.getRewardSummary(customerId, startDate, endDate);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+
+        verify(transactionRepository, times(1))
+                .findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
+        verifyNoMoreInteractions(transactionService);
     }
 }

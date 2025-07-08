@@ -1,11 +1,20 @@
 package com.example.reward.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class RewardPoint {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rewardPointId;
@@ -18,48 +27,8 @@ public class RewardPoint {
     private Customer customer;
 
     @ManyToOne
-    @JoinColumn(name = "transaction_id")  // Foreign key for the relationship
+    @JoinColumn(name = "transaction_id")
     private CustomerTransaction customerTransaction;
-
-    public Long getRewardPointId() {
-        return rewardPointId;
-    }
-
-    public void setRewardPointId(Long rewardPointId) {
-        this.rewardPointId = rewardPointId;
-    }
-
-    public int getPoints() {
-        return points;
-    }
-
-    public void setPoints(int points) {
-        this.points = points;
-    }
-
-    public Customer getCustomer() {
-        return customer;
-    }
-
-    public void setCustomer(Customer customer) {
-        this.customer = customer;
-    }
-
-    public CustomerTransaction getCustomerTransaction() {
-        return customerTransaction;
-    }
-
-    public void setCustomerTransaction(CustomerTransaction customerTransaction) {
-        this.customerTransaction = customerTransaction;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
 
     public static class Builder {
         private int points;
