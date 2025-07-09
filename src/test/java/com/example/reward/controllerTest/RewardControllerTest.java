@@ -4,72 +4,74 @@ import com.example.reward.controller.RewardController;
 import com.example.reward.dto.MonthlyPointDTO;
 import com.example.reward.dto.RewardSummaryDTO;
 import com.example.reward.dto.TransactionDTO;
-import com.example.reward.exception.ResourceNotFoundException;
 import com.example.reward.service.reward.RewardService;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@RunWith(MockitoJUnitRunner.class)
+@WebMvcTest(RewardController.class)
 public class RewardControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Mock
     private RewardService rewardService;
 
-    @InjectMocks
-    private RewardController rewardController;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-    private List<RewardSummaryDTO> rewardSummaryList;
+    @Test
+    void shouldReturnRewardSummarySuccessfully() throws Exception {
+        TransactionDTO transaction = new TransactionDTO(
+                1L, 1L, BigDecimal.valueOf(120.0), LocalDateTime.of(2024, 11, 1, 10, 30)
+        );
 
-    @Before
-    public void setup() {
-        TransactionDTO transaction = new TransactionDTO(1L, 1L, BigDecimal.valueOf(120.0), LocalDateTime.of(2024, 11, 1, 10, 30));
         MonthlyPointDTO monthlyPoint = new MonthlyPointDTO(2024, "NOVEMBER", 90);
 
-        RewardSummaryDTO summary = new RewardSummaryDTO();
-        summary.setId(1L);
-        summary.setCustomerName("Alice");
-        summary.setTransactions(Collections.singletonList(transaction));
-        summary.setMonthlyPoints(Collections.singletonList(monthlyPoint));
+        RewardSummaryDTO summary = new RewardSummaryDTO(
+                1L, "Alice",
+                List.of(transaction),
+                List.of(monthlyPoint)
+        );
 
-        rewardSummaryList = Collections.singletonList(summary);
+        when(rewardService.getRewardSummary(eq(1L), any(), any()))
+                .thenReturn(List.of(summary));
+
+        mockMvc.perform(get("/api/v1/customer-reward-summary/1")
+                        .param("startDate", "2024-11-01")
+                        .param("endDate", "2024-11-30")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].customerName").value("Alice"))
+                .andExpect(jsonPath("$[0].transactions[0].amount").value(120.0))
+                .andExpect(jsonPath("$[0].monthlyPoints[0].points").value(90));
     }
 
     @Test
-    public void testGetRewardSummarySuccess() {
-        when(rewardService.getRewardSummary(eq(1L), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(rewardSummaryList);
-
-        ResponseEntity<List<RewardSummaryDTO>> response = rewardController.getRewardSummary(
-                1L, "2024-11-01", "2024-11-30");
-
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().size());
-        assertEquals("Alice", response.getBody().get(0).getCustomerName());
-
-        verify(rewardService, times(1)).getRewardSummary(eq(1L), any(LocalDate.class), any(LocalDate.class));
-    }
-
-    @Test(expected = ResourceNotFoundException.class)
-    public void testGetRewardSummaryNoData() {
-        when(rewardService.getRewardSummary(eq(1L), any(LocalDate.class), any(LocalDate.class)))
+    void shouldReturn404WhenNoRewardSummaryExists() throws Exception {
+        when(rewardService.getRewardSummary(eq(1L), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        rewardController.getRewardSummary(1L, "2024-11-01", "2024-11-30");
+        mockMvc.perform(get("/api/v1/customer-reward-summary/1")
+                        .param("startDate", "2024-11-01")
+                        .param("endDate", "2024-11-30"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No rewards found for the provided customer ID"));
     }
 }

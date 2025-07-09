@@ -1,82 +1,80 @@
-### Customer Rewards Service
+#  Customer Rewards Service
 
-This Spring Boot application calculates monthly and total reward points for customers based on their transaction history
-using simple, rule-based logic.
+A Spring Boot application that calculates **monthly** and **total reward points** for customers based on their transaction history.
 
-### Features
+##  Features
 
-Calculates reward points for each customer transaction.
+- Calculates reward points for each customer transaction
+- Computes **monthly** and **total** reward points
+- REST APIs to fetch reward summaries
+- Supports multiple customers and transactions
+- Uses clean architecture (DTOs, Services, Repositories)
+- Integrated with PostgreSQL using Spring Data JPA
+- Includes authentication with Spring Security
 
-Computes monthly and total reward points.
 
-Fetch reward summary via REST APIs.
+##  Points Calculation Logic
 
-Designed to handle multiple customers and transactions.
-
-Follows clean architecture with DTOs and services.
-
-Includes integration with PostgreSQL and uses JPA for ORM.
-
-### Points Calculation Logic
-
-Transaction Amount Reward Points Logic
-$0 - $50 0 points
-$50 - $100 1 point per dollar over $50
-$100+ 1 point/dollar from $50–$100 + 2 points/dollar above $100
+| Transaction Amount | Reward Points                    |
+|--------------------|----------------------------------|
+| $0 - $50           | 0 points                         |
+| $50 - $100         | 1 point per $ over $50           |
+| Over $100          | 1 point/$ from $50–$100 + 2/$ > $100 |
 
 ### Example:
 
-A transaction of $120 results in:
+For a transaction of `$120`:
+- 50 points for the $50 between $50–$100
+- 40 points for the $20 over $100  
+  **Total: 90 points**
 
-50 points for $50–$100
 
-40 points for $20 over $100
+## 🛠 Tech Stack
 
-Total = 90 points
+| Technology       | Version / Usage         |
+|------------------|--------------------------|
+| Java             | 21                       |
+| Spring Boot      | 3.x                      |
+| PostgreSQL       | 15+                      |
+| Spring Data JPA  | ✅ ORM                   |
+| Spring Security  | ✅ Authentication         |
+| Lombok           | ✅ Boilerplate reduction |
+| Build Tool       | Maven (latest)           |
 
-### Tech Stack
 
-Tech Version
-Java 21
-Spring Boot 3.x
-PostgreSQL 15+
-Maven Latest
-Spring Data JPA Included
-Spring Security Included
-Lombok Used for boilerplate code reduction
+##  Environment Setup
 
-### Environment Setup
+### Prerequisites
 
-Install Java 21, Maven, and PostgreSQL.
+- Java 21
+- Maven
+- PostgreSQL
 
-Configure DB:
-properties
+###  Configure Database
 
-# src/main/resources/application.properties
+**File:** `src/main/resources/application.properties`
 
+### properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/assignment
 spring.datasource.username=root
 spring.datasource.password=password
 spring.jpa.hibernate.ddl-auto=update
 
-Run the application:
+
+### Run the App
 mvn clean install
 mvn spring-boot:run
 
-🔁 REST API Documentation
-Base URL: http://localhost:8080/api/v1
 
-### Customer APIs
-
-✅ Register Customer
+### REST API Endpoints
+http://localhost:8080/api/v1
+# Register Customer
 POST /register
-
-### Request Body
-
+# Request Body
 {
-"name": "Alice",
-"email": "alice@example.com",
-"password": "secret123"
+  "name": "Alice",
+  "email": "alice@example.com",
+  "password": "secret123"
 }
 
 ### Response
@@ -110,9 +108,9 @@ GET /{customerId}
 ### Response
 
 {
-"customerId": 1,
-"name": "Alice",
-"email": "alice@example.com"
+  "customerId": 1,
+  "name": "Alice",
+  "email": "alice@example.com"
 }
 
 📋 Get All Customers
@@ -121,11 +119,11 @@ GET /
 ### Response
 
 [
-{
-"customerId": 1,
-"name": "Alice",
-"email": "alice@example.com"
-}
+  {
+    "customerId": 1,
+    "name": "Alice",
+    "email": "alice@example.com"
+  }
 ]
 
 ### Transaction API
@@ -136,12 +134,12 @@ POST /transactions
 ### Request Body
 
 {
-"amount": 120.0,
-"spentDetails": "Grocery shopping",
-"date": "2024-11-01T10:30:00",
-"customer": {
-"customerId": 1
-}
+  "amount": 120.0,
+  "spentDetails": "Grocery shopping",
+  "date": "2024-11-01T10:30:00",
+  "customer": {
+    "customerId": 1
+  }
 }
 
 ### Response
@@ -154,21 +152,23 @@ GET /customer-reward-summary/{customerId}?startDate=2024-11-01&endDate=2025-01-3
 ### ### Response
 
 [
-{
-"id": 1,
-"customerName": "Alice",
-"transactions": [
-{
-"id": 1,
-"customerId": 1,
-"amount": 120.0,
-"transactionDate": "2024-11-01T10:30:00"
-}
-],
-"monthlyPoints": [
-{
-"year": 2024,
-"month": "NOVEMBER",
-"points": 90
-}
+  {
+    "id": 1,
+    "customerName": "Alice",
+    "transactions": [
+      {
+        "id": 1,
+        "customerId": 1,
+        "amount": 120.0,
+        "transactionDate": "2024-11-01T10:30:00"
+      }
+    ],
+    "monthlyPoints": [
+      {
+        "year": 2024,
+        "month": "NOVEMBER",
+        "points": 90
+      }
+    ]
+  }
 ]

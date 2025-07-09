@@ -1,24 +1,30 @@
 package com.example.reward.controllerTest;
 
 import com.example.reward.controller.CustomerController;
+import com.example.reward.dto.CustomerDTO;
 import com.example.reward.entity.Customer;
-import com.example.reward.exception.ResourceNotFoundException;
 import com.example.reward.service.customer.CustomerService;
 import com.example.reward.service.login.LoginAndLogoutService;
-import com.example.reward.service.reward.RewardService;
-import org.junit.jupiter.api.BeforeEach;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.util.Arrays;
+import java.util.List;
+
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-class CustomerControllerTest {
+@WebMvcTest(CustomerController.class)
+public class CustomerControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Mock
     private CustomerService customerService;
@@ -26,99 +32,107 @@ class CustomerControllerTest {
     @Mock
     private LoginAndLogoutService loginAndLogoutService;
 
-    @Mock
-    private RewardService rewardService;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-    @InjectMocks
-    private CustomerController customerController;
+    @Test
+    void shouldRegisterCustomerSuccessfully() throws Exception {
+        Customer customer = new Customer(null, "Manikanta", "manikanta@example.com");
 
-    @BeforeEach
-    void initMocks() {
-        MockitoAnnotations.openMocks(this);
+        mockMvc.perform(post("/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(customer)))
+                .andExpect(status().isCreated())
+                .andExpect(content().string("Customer registered successfully"));
+
+        verify(customerService, times(1)).registerCustomer(any(Customer.class));
     }
 
     @Test
-    void shouldRegisterCustomerSuccessfully() {
-        Customer customer = new Customer();
-        customer.setName("Manikanta");
-        customer.setEmail("manikanta@example.com");
+    void shouldLoginCustomerSuccessfully_whenCredentialsAreValid() throws Exception {
+        when(loginAndLogoutService.authenticateCustomer("manikanta@example.com", "test123")).thenReturn(true);
 
-        ResponseEntity<String> response = customerController.registerCustomer(customer);
-
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertEquals("Customer registered successfully", response.getBody());
+        mockMvc.perform(post("/login")
+                        .param("email", "manikanta@example.com")
+                        .param("password", "test123"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Login successful"));
     }
 
     @Test
-    void shouldLoginCustomerSuccessfully_whenCredentialsAreValid() {
-        String email = "manikanta@example.com";
-        String password = "test123";
+    void shouldFailLogin_whenCredentialsAreInvalid() throws Exception {
+        when(loginAndLogoutService.authenticateCustomer("manikanta@example.com", "wrong")).thenReturn(false);
 
-        when(loginAndLogoutService.authenticateCustomer(email, password)).thenReturn(true);
-
-        ResponseEntity<String> response = customerController.loginCustomer(email, password);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Login successful", response.getBody());
+        mockMvc.perform(post("/login")
+                        .param("email", "manikanta@example.com")
+                        .param("password", "wrong"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Invalid credentials"));
     }
 
     @Test
-    void shouldFailLogin_whenCredentialsAreInvalid() {
-        String email = "manikanta@example.com";
-        String password = "wrongPassword";
-
-        when(loginAndLogoutService.authenticateCustomer(email, password)).thenReturn(false);
-
-        ResponseEntity<String> response = customerController.loginCustomer(email, password);
-
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        assertEquals("Invalid credentials", response.getBody());
-    }
-
-    @Test
-    void shouldLogoutCustomerSuccessfully() {
-        ResponseEntity<String> response = customerController.logoutCustomer();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Logged out successfully", response.getBody());
+    void shouldLogoutCustomerSuccessfully() throws Exception {
+        mockMvc.perform(post("/logout"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Logged out successfully"));
 
         verify(loginAndLogoutService, times(1)).logout();
     }
 
     @Test
-    void shouldThrowException_whenDeletingCustomerWithNegativeId() {
-        Long customerId = -1L;
+    void shouldDeleteCustomerSuccessfully() throws Exception {
+        Long customerId = 1L;
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            customerController.deleteCustomer(customerId);
-        });
+        mockMvc.perform(delete("/" + customerId))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Customer with ID 1 and associated transactions and reward points deleted successfully"));
 
-        assertEquals("Customer ID must be positive", exception.getMessage());
+        verify(customerService, times(1)).deleteCustomerWithTransactionsAndRewards(customerId);
     }
 
     @Test
-    void shouldReturnError_whenCustomerToDeleteIsNotFound() {
-        Long customerId = 1L;
+    void shouldReturnCustomerById() throws Exception {
+        CustomerDTO dto = new CustomerDTO(1L, "Manikanta", "manikanta@example.com");
 
-        doThrow(new ResourceNotFoundException("Customer not found"))
-                .when(customerService).deleteCustomerWithTransactionsAndRewards(customerId);
+        when(customerService.getCustomerById(1L)).thenReturn(dto);
 
-        ResponseEntity<String> response = customerController.deleteCustomer(customerId);
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("Error occurred while deleting customer with ID " + customerId, response.getBody());
+        mockMvc.perform(get("/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(1))
+                .andExpect(jsonPath("$.name").value("Manikanta"))
+                .andExpect(jsonPath("$.email").value("manikanta@example.com"));
     }
 
     @Test
-    void shouldDeleteCustomerSuccessfully() {
-        Long customerId = 1L;
+    void shouldReturn404_whenCustomerNotFoundById() throws Exception {
+        when(customerService.getCustomerById(999L)).thenReturn(null);
 
-        doNothing().when(customerService).deleteCustomerWithTransactionsAndRewards(customerId);
+        mockMvc.perform(get("/999"))
+                .andExpect(status().isNotFound());
+    }
 
-        ResponseEntity<String> response = customerController.deleteCustomer(customerId);
+    @Test
+    void shouldReturnAllCustomers() throws Exception {
+        List<CustomerDTO> customers = Arrays.asList(
+                new CustomerDTO(1L, "John", "john@example.com"),
+                new CustomerDTO(2L, "Alice", "alice@example.com")
+        );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("Customer with ID " + customerId + " and associated transactions and reward points deleted successfully", response.getBody());
+        when(customerService.getAllCustomers()).thenReturn(customers);
+
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].customerId").value(1))
+                .andExpect(jsonPath("$[1].customerId").value(2));
+    }
+
+    @Test
+    void shouldReturnEmptyList_whenNoCustomers() throws Exception {
+        when(customerService.getAllCustomers()).thenReturn(List.of());
+
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 }
-
