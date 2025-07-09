@@ -1,5 +1,8 @@
 package com.example.reward.dto;
 
+import lombok.Data;
+
+@Data
 public class CustomerDTO {
     private Long customerId;
     private String name;

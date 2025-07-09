@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @RestController
@@ -23,11 +24,21 @@ public class RewardController {
             @RequestParam String startDate,
             @RequestParam String endDate) {
 
-        List<RewardSummaryDTO> result = rewardService.getRewardSummary(
-                customerId,
-                LocalDate.parse(startDate),
-                LocalDate.parse(endDate)
-        );
+        LocalDate fromDate;
+        LocalDate toDate;
+
+        try {
+            fromDate = LocalDate.parse(startDate);
+            toDate = LocalDate.parse(endDate);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid date format. Expected format: yyyy-MM-dd");
+        }
+
+        if (fromDate.isAfter(toDate)) {
+            throw new IllegalArgumentException("Start date must not be after end date");
+        }
+
+        List<RewardSummaryDTO> result = rewardService.getRewardSummary(customerId, fromDate, toDate);
 
         if (result.isEmpty()) {
             throw new ResourceNotFoundException("No rewards found for the provided customer ID");

@@ -1,5 +1,6 @@
 package com.example.reward.service.reward;
 
+import com.example.reward.dto.MonthlyPointDTO;
 import com.example.reward.dto.RewardSummaryDTO;
 import com.example.reward.dto.TransactionDTO;
 import com.example.reward.entity.Customer;
@@ -41,7 +42,6 @@ public class RewardServiceTest {
     private Long customerId;
     private LocalDate startDate;
     private LocalDate endDate;
-
     private CustomerTransaction sampleTransaction;
 
     @Before
@@ -52,7 +52,7 @@ public class RewardServiceTest {
 
         Customer customer = new Customer();
         customer.setCustomerId(customerId);
-        customer.setName("Alice");
+        customer.setName("Mani");
 
         sampleTransaction = new CustomerTransaction();
         sampleTransaction.setTransactionId(100L);
@@ -62,7 +62,7 @@ public class RewardServiceTest {
     }
 
     @Test
-    public void testGetRewardSummarySuccess() {
+    public void shouldReturnRewardSummaryWhenTransactionsExist() {
         when(transactionRepository.findTransactionsForCustomerBetweenDates(customerId, startDate, endDate))
                 .thenReturn(List.of(sampleTransaction));
 
@@ -76,22 +76,31 @@ public class RewardServiceTest {
 
         RewardSummaryDTO summary = result.get(0);
         assertEquals(customerId, summary.getId());
-        assertEquals("Alice", summary.getCustomerName());
+        assertEquals("Mani", summary.getCustomerName());
+
+        assertNotNull(summary.getTransactions());
         assertEquals(1, summary.getTransactions().size());
+
+        TransactionDTO transactionDTO = summary.getTransactions().get(0);
+        assertEquals(Long.valueOf(100), transactionDTO.getId());
+        assertEquals(BigDecimal.valueOf(120.0), transactionDTO.getAmount());
+        assertEquals(LocalDateTime.of(2024, 11, 10, 10, 30), transactionDTO.getTransactionDate());
+
+        assertNotNull(summary.getMonthlyPoints());
         assertEquals(1, summary.getMonthlyPoints().size());
 
-        TransactionDTO tx = summary.getTransactions().get(0);
-        assertEquals(Long.valueOf(100L), tx.getId());
-        assertEquals(BigDecimal.valueOf(120.0), tx.getAmount());
+        MonthlyPointDTO monthPoints = summary.getMonthlyPoints().get(0);
+        assertEquals(2024, monthPoints.getYear());
+        assertEquals("NOVEMBER", monthPoints.getMonth());
+        assertEquals(90, monthPoints.getPoints());
 
-        verify(transactionRepository, times(1))
-                .findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
-        verify(transactionService, times(1))
-                .calculateRewardPoints(BigDecimal.valueOf(120.0));
+        verify(transactionRepository).findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
+        verify(transactionService).calculateRewardPoints(BigDecimal.valueOf(120.0));
+        verifyNoMoreInteractions(transactionRepository, transactionService);
     }
 
     @Test
-    public void testGetRewardSummaryEmptyTransactions() {
+    public void shouldReturnEmptySummaryWhenNoTransactionsFound() {
         when(transactionRepository.findTransactionsForCustomerBetweenDates(customerId, startDate, endDate))
                 .thenReturn(Collections.emptyList());
 
@@ -100,8 +109,7 @@ public class RewardServiceTest {
         assertNotNull(result);
         assertTrue(result.isEmpty());
 
-        verify(transactionRepository, times(1))
-                .findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
-        verifyNoMoreInteractions(transactionService);
+        verify(transactionRepository).findTransactionsForCustomerBetweenDates(customerId, startDate, endDate);
+        verifyNoMoreInteractions(transactionRepository, transactionService);
     }
 }
