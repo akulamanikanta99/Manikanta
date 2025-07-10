@@ -23,19 +23,16 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public void deleteCustomerWithTransactionsAndRewards(Long customerId) {
-        Optional<Customer> customer = customerRepository.findById(customerId);
-        if (customer.isEmpty()) {
-            throw new ResourceNotFoundException("Customer not found with ID " + customerId);
-        }
-        customerRepository.delete(customer.get());
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with ID " + customerId));
+
+        customerRepository.delete(customer);
     }
 
     public CustomerDTO getCustomerById(Long customerId) {
-        Customer customer = customerRepository.findById(customerId).orElse(null);
-        if (customer != null) {
-            return new CustomerDTO(customer.getCustomerId(), customer.getName(), customer.getEmail());
-        }
-        return null;
+        return customerRepository.findById(customerId)
+                .map(customer -> new CustomerDTO(customer.getCustomerId(), customer.getName(), customer.getEmail()))
+                .orElse(null);
     }
 
     public List<CustomerDTO> getAllCustomers() {

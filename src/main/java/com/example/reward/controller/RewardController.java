@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -38,12 +39,10 @@ public class RewardController {
             throw new IllegalArgumentException("Start date must not be after end date");
         }
 
-        List<RewardSummaryDTO> result = rewardService.getRewardSummary(customerId, fromDate, toDate);
-
-        if (result.isEmpty()) {
-            throw new ResourceNotFoundException("No rewards found for the provided customer ID");
-        }
-
-        return ResponseEntity.ok(result);
+        return Optional.of(rewardService.getRewardSummary(customerId, fromDate, toDate))
+                .filter(list -> !list.isEmpty())
+                .map(ResponseEntity::ok)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("No rewards found for the provided customer ID"));
     }
 }

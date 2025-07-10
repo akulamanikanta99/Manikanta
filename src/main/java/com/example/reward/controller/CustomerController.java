@@ -12,6 +12,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/customers/v1")
@@ -63,11 +64,9 @@ public class CustomerController {
     public ResponseEntity<CustomerDTO> getCustomerById(@PathVariable Long customerId) {
         CustomerDTO customerDTO = customerService.getCustomerById(
                 customerId);
-        if (customerDTO != null) {
-            return ResponseEntity.ok(customerDTO);
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
+        return Optional.ofNullable(customerDTO)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(null));
     }
 
     @GetMapping
